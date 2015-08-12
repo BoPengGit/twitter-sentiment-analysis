@@ -4,11 +4,12 @@ title: Naive Bayes classifier for Twitter sentiment analysis
 comments: True
 ---
 
-Recently, I worked on a project requiring me to classify Tweets (and assign polarity scores) into positive and negative. We wanted to classify Tweets about some movies to understand the overall sentiment of response towards that movie. I know this is one of the most clichéd NLP problems.
+Sentiment Analysis is the process of detecting the contextual polarity of text. In other words, it determines whether a piece of writing is positive, negative or neutral. 
+Recently, I worked on a project requiring me to classify Tweets (and assign polarity scores) into positive and negative. We wanted to classify Tweets about some movies to understand the overall sentiment of response towards that movie. I know this is one of the most clichéd NLP problem.
 
 ### Finding the right training corpus
 
-This is a really important step because of the simple reason that no matter how good your algorithm, implementation, feature engineering and parameter tuning is your final results are going to be bad unless you have a good training corpus. It is also important to use a corpus that is somewhat related to the domain you want to classify text for. For example, you should not use a generic Twitter corpus for classifying Tweets related to movie review. For example, when I use the corpus provided by [Niek Sanders](http://www.sananalytics.com/lab/twitter-sentiment/), Tweets containing negative words (e.g can't wait) gets classified as negative. But, in the context of the movies, Tweets like:
+This is a really important step because of the simple reason that no matter how good your algorithm, implementation, feature engineering and parameter tuning is your final results are going to be bad unless you have a good training corpus. It is also important to use a corpus that is somewhat related to the domain you want to classify text for. You should not use a generic Twitter corpus for classifying Tweets related to movie review. For example, when I use the corpus provided by [Niek Sanders](http://www.sananalytics.com/lab/twitter-sentiment/), Tweets containing negative words (e.g can't wait) gets classified as negative. But, in the context of the movies, Tweets like:
 
 <pre>
 RT @79Glukhenko: Can't wait to see insurgent :)
@@ -29,28 +30,24 @@ The code assumes that you are reading Tweets you want to classify from a databas
 
 {% highlight python linenos %}
 
-import os
-
-import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.metrics import classification_report
-from db.access import get_engine
 
-tweets = pd.read_sql_query(sql="SELECT * FROM tweet order by random() LIMIT 200", con=get_engine())
-texts = tweets['json_data'].map(lambda x: x['text'])
-texts = pd.DataFrame(texts).rename(columns=lambda x: x.replace('json_data', 'text'))
 
-f = pd.read_csv('./twitter_corpus.csv', sep=',', names=['Text', 'Sentiment'], dtype=str, header=0)
+tweets = pd.read_csv('tweets.csv')
+
+f = pd.read_csv('twitter_corpus.csv', sep=',', names=['Text', 'Sentiment'], dtype=str)
 
 def split_into_lemmas(tweet):
     bigram_vectorizer = CountVectorizer(ngram_range=(1, 3), token_pattern=r'\b\w+\b', min_df=1)
     analyze = bigram_vectorizer.build_analyzer()
     return analyze(tweet)
 
+
 bow_transformer = CountVectorizer(analyzer = split_into_lemmas, stop_words='english', strip_accents='ascii').fit(f['Text'])
+
 
 text_bow = bow_transformer.transform(f['Text'])
 tfidf_transformer = TfidfTransformer().fit(text_bow)
@@ -82,7 +79,7 @@ Notice the *class_prior* parameter. It is used to set the prior probability assi
 
 sentiments = pd.DataFrame(columns = ['text', 'class', 'prob'])
 i = 0
-for _, tweet in texts.iterrows():
+for _, tweets in texts.iterrows():
     i += 1
     try:
         bow_tweet = bow_transformer.transform(tweet)
@@ -96,4 +93,16 @@ for _, tweet in texts.iterrows():
 sentiments.to_csv('sentiments.csv', encoding ='utf-8')
 print sentiments
 
+Here's the result:
+
+{% highlight %}
+                                                text class prob
+0  Congrats @sundarpichai well deserved! Proud mo...   pos  5.1
+1  Congratulations @sundarpichai. My best wishes ...   pos  6.1
+2  The choice is ultimately between diplomacy and...   pos  5.3
+3  The movie #drive is seriously the worst movie ...   neg  4.6
+4  News of another attack in Kabul is very sadden...   neg  4.7
+
 {% endhighlight %}
+
+Now, you may play with parameters to improve the performance of the classifier. You may also train it on a better corpus.s
